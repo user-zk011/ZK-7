@@ -75,8 +75,8 @@ button.Parent = frame
 button.AnchorPoint = Vector2.new(0.5, 0)
 button.Position = UDim2.new(0.5, 0, 0.68, 0)
 button.Size = UDim2.new(0.6, 0, 0, 54)
-button.BackgroundColor3 = Color3.fromRGB(30,180,80) -- verde base
-button.Text = "COMEÇAR TESTE"
+button.BackgroundColor3 = Color3.fromRGB(255,255,255) -- verde base
+button.Text = "SIM"
 button.Font = Enum.Font.GothamSemibold
 button.TextSize = 20
 -- Garantir que o texto do botão fique totalmente branco e sem efeitos:
