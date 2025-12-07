@@ -1,6 +1,6 @@
--- FakePull_Improved_LocalScript.lua
+-- FakePull_CleanFunctional_LocalScript.lua
 -- Cole este LocalScript em StarterPlayerScripts ou StarterGui.
--- Todo comportamento é local (client-side) e não faz chamadas ao servidor.
+-- Tudo é CLIENT-SIDE: não faz chamadas ao servidor.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -11,34 +11,43 @@ local SoundService = game:GetService("SoundService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Configs visuais / de tempo
-local WINDOW_W = 460
-local WINDOW_H = 280
-local EXPAND_TIME = 0.55
-local LOAD_SECONDS = 30 -- duração do "progresso" (segundos)
-local PANEL_COLOR = Color3.fromRGB(10,10,10)         -- painel quase preto
-local STROKE_BLUE = Color3.fromRGB(0,122,255)        -- azul vivo
-local BUTTON_GREEN = Color3.fromRGB(40,200,120)
-local BUTTON_RED = Color3.fromRGB(220,60,60)
-local TEXT_COLOR = Color3.fromRGB(245,245,245)
+-- CONFIG
+local WINDOW_W = 440
+local WINDOW_H = 260
+local EXPAND_TIME = 0.5
+local LOAD_SECONDS = 30 -- tempo de "procura" (mantenha 30 se desejar)
+local PANEL_COLOR = Color3.fromRGB(0, 0, 0)        -- painel preto
+local STROKE_BLUE = Color3.fromRGB(0, 122, 255)    -- azul vivo no traço
+local BUTTON_GREEN = Color3.fromRGB(40, 200, 120)
+local BUTTON_RED = Color3.fromRGB(220, 60, 60)
+local TEXT_COLOR = Color3.fromRGB(235,235,235)
 
+-- Guardar volume original para restaurar depois
 local originalVolume = SoundService.Volume
 
+-- helper para criar instâncias rapidamente
 local function new(className, props)
 	local obj = Instance.new(className)
 	if props then
-		for k,v in pairs(props) do
-			if k == "Parent" then obj.Parent = v else obj[k] = v end
+		for k, v in pairs(props) do
+			if k == "Parent" then
+				obj.Parent = v
+			else
+				obj[k] = v
+			end
 		end
 	end
 	return obj
 end
 
--- remove GUI antigo
-for _,c in ipairs(playerGui:GetChildren()) do
-	if c.Name == "FakePullGUI" then pcall(function() c:Destroy() end) end
+-- limpa GUI anterior (se houver)
+for _, child in ipairs(playerGui:GetChildren()) do
+	if child.Name == "FakePullGUI" then
+		child:Destroy()
+	end
 end
 
+-- ScreenGui
 local screenGui = new("ScreenGui", {
 	Parent = playerGui,
 	Name = "FakePullGUI",
@@ -46,66 +55,67 @@ local screenGui = new("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 
--- Full-screen overlay que bloqueia interações atrás (sempre por cima quando visível)
+-- overlay full-screen (usado para bloquear input e cobrir tela)
 local overlay = new("Frame", {
 	Parent = screenGui,
-	Name = "ModalOverlay",
+	Name = "Overlay",
 	Size = UDim2.new(1,0,1,0),
 	Position = UDim2.new(0,0,0,0),
 	BackgroundColor3 = PANEL_COLOR,
-	BackgroundTransparency = 0.0,
-	ZIndex = 900,
+	BackgroundTransparency = 1, -- começamos transparente até expandir
 	Visible = false,
+	ZIndex = 100,
 	Active = true,
 })
 new("UICorner", {Parent = overlay, CornerRadius = UDim.new(0,0)})
 
--- Painel "flutuante" inicial (draggable)
+-- painel inicial (pequeno) - draggable
 local panel = new("Frame", {
 	Parent = screenGui,
 	Name = "Panel",
 	Size = UDim2.new(0, WINDOW_W, 0, WINDOW_H),
 	Position = UDim2.new(0.5, -WINDOW_W/2, 0.5, -WINDOW_H/2),
-	BackgroundColor3 = PANEL_COLOR,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = Color3.fromRGB(10,10,10),
 	BorderSizePixel = 0,
-	AnchorPoint = Vector2.new(0.5,0.5),
-	ZIndex = 850,
+	ZIndex = 105,
 	Active = true,
 })
-new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,14)})
-new("UIStroke", {Parent = panel, Color = STROKE_BLUE, Thickness = 3, Transparency = 0})
+new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,12)})
+new("UIStroke", {Parent = panel, Color = STROKE_BLUE, Thickness = 3})
 
--- Drop shadow frame (subtle)
+-- shadow (pequeno) sob o painel
 local shadow = new("Frame", {
 	Parent = screenGui,
 	Name = "PanelShadow",
 	Size = panel.Size,
-	Position = panel.Position,
+	Position = panel.Position + UDim2.new(0,6,0,6),
 	BackgroundColor3 = Color3.fromRGB(0,0,0),
 	BackgroundTransparency = 0.8,
-	ZIndex = 840,
+	ZIndex = 104,
 })
-new("UICorner", {Parent = shadow, CornerRadius = UDim.new(0,16)})
+new("UICorner", {Parent = shadow, CornerRadius = UDim.new(0,14)})
 
--- Content container para centralização
+-- content container centralizado
 local content = new("Frame", {
 	Parent = panel,
 	Size = UDim2.new(1, -36, 1, -36),
 	Position = UDim2.new(0, 18, 0, 18),
 	BackgroundTransparency = 1,
 })
-local uiLayout = new("UIListLayout", {
+local layout = new("UIListLayout", {
 	Parent = content,
 	FillDirection = Enum.FillDirection.Vertical,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0,10),
+	Padding = UDim.new(0,6),
 })
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Greeting - centralizado e bonito
+-- greeting (centralizado)
 local greeting = new("TextLabel", {
 	Parent = content,
-	Size = UDim2.new(1, 0, 0, 36),
+	Size = UDim2.new(1, 0, 0, 40),
 	BackgroundTransparency = 1,
 	Text = "Olá, " .. (player.DisplayName ~= "" and player.DisplayName or player.Name),
 	TextColor3 = TEXT_COLOR,
@@ -113,96 +123,98 @@ local greeting = new("TextLabel", {
 	TextSize = 22,
 	TextXAlignment = Enum.TextXAlignment.Center,
 	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 860,
+	ZIndex = 106,
 })
 
--- Subtitulo pequeno
 local subtitle = new("TextLabel", {
 	Parent = content,
 	Size = UDim2.new(1, 0, 0, 18),
 	BackgroundTransparency = 1,
-	Text = "Clique em 'Puxar jogadores' para simular",
-	TextColor3 = Color3.fromRGB(180,180,190),
+	Text = "",
+	TextColor3 = Color3.fromRGB(185,185,185),
 	Font = Enum.Font.Gotham,
 	TextSize = 14,
 	TextXAlignment = Enum.TextXAlignment.Center,
-	ZIndex = 860,
+	ZIndex = 106,
 })
 
--- Botões container
+-- btn container
 local btnContainer = new("Frame", {
 	Parent = content,
 	Size = UDim2.new(1, 0, 0, 64),
 	BackgroundTransparency = 1,
+	ZIndex = 106,
 })
 local btnLayout = new("UIListLayout", {
 	Parent = btnContainer,
 	FillDirection = Enum.FillDirection.Horizontal,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0,16),
+	Padding = UDim.new(0,14),
 })
 
--- Botões
+-- puxar button (principal)
 local puxarBtn = new("TextButton", {
 	Parent = btnContainer,
 	Name = "PuxarBtn",
-	Size = UDim2.new(0, 240, 0, 48),
+	Size = UDim2.new(0, 260, 0, 50),
 	BackgroundColor3 = BUTTON_GREEN,
 	Text = "Puxar jogadores",
 	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.GothamBold,
 	TextSize = 18,
-	ZIndex = 870,
 	AutoButtonColor = true,
+	ZIndex = 107,
 })
 new("UICorner", {Parent = puxarBtn, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = puxarBtn, Color = STROKE_BLUE, Thickness = 1, Transparency = 0.4})
+new("UIStroke", {Parent = puxarBtn, Color = STROKE_BLUE, Thickness = 1, Transparency = 0.35})
 
-local cancelBtn = new("TextButton", {
+-- close button
+local closeBtn = new("TextButton", {
 	Parent = btnContainer,
-	Name = "CancelBtn",
-	Size = UDim2.new(0, 120, 0, 48),
+	Name = "CloseBtn",
+	Size = UDim2.new(0, 120, 0, 50),
 	BackgroundColor3 = BUTTON_RED,
 	Text = "Fechar",
 	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.GothamBold,
 	TextSize = 16,
-	ZIndex = 870,
 	AutoButtonColor = true,
+	ZIndex = 107,
 })
-new("UICorner", {Parent = cancelBtn, CornerRadius = UDim.new(0,10)})
+new("UICorner", {Parent = closeBtn, CornerRadius = UDim.new(0,10)})
 
--- Fullscreen content (dentro do overlay) - criado dentro de overlay para garantir bloqueio
-local fsContainer = new("Frame", {
+-- Fullscreen content (dentro do overlay) - garantido bloqueio por overlay estar visível
+local full = new("Frame", {
 	Parent = overlay,
-	Name = "FullScreenContainer",
+	Name = "FullContent",
 	Size = UDim2.new(1,0,1,0),
 	Position = UDim2.new(0,0,0,0),
 	BackgroundTransparency = 1,
-	ZIndex = 905,
+	ZIndex = 110,
 	Visible = false,
 	Active = true,
 })
 
--- Centro do fullscreen
-local fsCenter = new("Frame", {
-	Parent = fsContainer,
+-- center frame inside full for UI elements
+local center = new("Frame", {
+	Parent = full,
 	Size = UDim2.new(0.8, 0, 0.7, 0),
-	Position = UDim2.new(0.5, 0, 0.5, 0),
-	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0.5,0,0.5,0),
+	AnchorPoint = Vector2.new(0.5,0.5),
 	BackgroundTransparency = 1,
+	ZIndex = 111,
 })
-local fsLayout = new("UIListLayout", {
-	Parent = fsCenter,
+local centerLayout = new("UIListLayout", {
+	Parent = center,
 	FillDirection = Enum.FillDirection.Vertical,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0,12),
+	Padding = UDim.new(0,10),
 })
 
-local fsTitle = new("TextLabel", {
-	Parent = fsCenter,
+local fullTitle = new("TextLabel", {
+	Parent = center,
 	Size = UDim2.new(1,0,0,64),
 	BackgroundTransparency = 1,
 	Text = "Cole o link do servidor privado que deseja",
@@ -212,10 +224,11 @@ local fsTitle = new("TextLabel", {
 	TextWrapped = true,
 	TextXAlignment = Enum.TextXAlignment.Center,
 	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 112,
 })
 
 local inputBox = new("TextBox", {
-	Parent = fsCenter,
+	Parent = center,
 	Name = "ServerLinkBox",
 	Size = UDim2.new(0.85,0,0,44),
 	BackgroundColor3 = Color3.fromRGB(245,245,245),
@@ -225,12 +238,13 @@ local inputBox = new("TextBox", {
 	Font = Enum.Font.Gotham,
 	TextSize = 18,
 	ClearTextOnFocus = false,
+	ZIndex = 112,
 })
 new("UICorner", {Parent = inputBox, CornerRadius = UDim.new(0,8)})
 new("UIStroke", {Parent = inputBox, Color = Color3.fromRGB(200,200,200), Thickness = 1, Transparency = 0.6})
 
 local puxarServerBtn = new("TextButton", {
-	Parent = fsCenter,
+	Parent = center,
 	Name = "PuxarServerBtn",
 	Size = UDim2.new(0, 200, 0, 46),
 	BackgroundColor3 = BUTTON_GREEN,
@@ -239,28 +253,30 @@ local puxarServerBtn = new("TextButton", {
 	Font = Enum.Font.GothamBold,
 	TextSize = 18,
 	AutoButtonColor = true,
+	ZIndex = 112,
 })
 new("UICorner", {Parent = puxarServerBtn, CornerRadius = UDim.new(0,10)})
-new("UIStroke", {Parent = puxarServerBtn, Color = STROKE_BLUE, Thickness = 1, Transparency = 0.4})
+new("UIStroke", {Parent = puxarServerBtn, Color = STROKE_BLUE, Thickness = 1, Transparency = 0.35})
 
--- Progress elements
+-- progress area
 local progressHolder = new("Frame", {
-	Parent = fsCenter,
+	Parent = center,
 	Name = "ProgressHolder",
 	Size = UDim2.new(0.85,0,0,120),
 	BackgroundTransparency = 1,
 	Visible = false,
+	ZIndex = 112,
 })
-local pt = new("TextLabel", {
+local pTitle = new("TextLabel", {
 	Parent = progressHolder,
 	Size = UDim2.new(1,0,0,28),
-	Position = UDim2.new(0,0,0,0),
 	BackgroundTransparency = 1,
 	Text = "PROCURANDO PLAYER",
 	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.GothamBold,
 	TextSize = 20,
 	TextXAlignment = Enum.TextXAlignment.Center,
+	ZIndex = 112,
 })
 local dotsLabel = new("TextLabel", {
 	Parent = progressHolder,
@@ -272,18 +288,21 @@ local dotsLabel = new("TextLabel", {
 	Font = Enum.Font.Gotham,
 	TextSize = 18,
 	TextXAlignment = Enum.TextXAlignment.Center,
+	ZIndex = 112,
 })
 local barBg = new("Frame", {
 	Parent = progressHolder,
 	Size = UDim2.new(1,0,0,18),
 	Position = UDim2.new(0,0,0,56),
 	BackgroundColor3 = Color3.fromRGB(45,45,45),
+	ZIndex = 112,
 })
 new("UICorner", {Parent = barBg, CornerRadius = UDim.new(0,8)})
 local barFill = new("Frame", {
 	Parent = barBg,
 	Size = UDim2.new(0,0,1,0),
 	BackgroundColor3 = Color3.fromRGB(80,220,140),
+	ZIndex = 113,
 })
 new("UICorner", {Parent = barFill, CornerRadius = UDim.new(0,8)})
 local percentLabel = new("TextLabel", {
@@ -296,10 +315,11 @@ local percentLabel = new("TextLabel", {
 	Font = Enum.Font.GothamBold,
 	TextSize = 18,
 	TextXAlignment = Enum.TextXAlignment.Center,
+	ZIndex = 112,
 })
 
 local finishBtn = new("TextButton", {
-	Parent = fsCenter,
+	Parent = center,
 	Name = "FinishBtn",
 	Size = UDim2.new(0,140,0,44),
 	BackgroundColor3 = BUTTON_RED,
@@ -308,34 +328,37 @@ local finishBtn = new("TextButton", {
 	Font = Enum.Font.GothamBold,
 	TextSize = 16,
 	Visible = false,
+	ZIndex = 112,
 })
 new("UICorner", {Parent = finishBtn, CornerRadius = UDim.new(0,10)})
 
--- Estado
+-- estado
 local expanded = false
 
--- Função utilitária: esconde tudo exceto os especificados (lista de objetos)
-local function hideAllExcept(root, exceptions)
-	local exceptSet = {}
-	for _,v in ipairs(exceptions or {}) do exceptSet[v] = true end
-	for _,obj in ipairs(root:GetDescendants()) do
-		if obj:IsA("GuiObject") and obj ~= root and not exceptSet[obj] then
+-- util: hide all GUIObjects in a parent except listed ones
+local function hideAllExcept(parent, keepList)
+	local keep = {}
+	for _,v in ipairs(keepList or {}) do keep[v] = true end
+	for _,obj in ipairs(parent:GetDescendants()) do
+		if obj:IsA("GuiObject") and not keep[obj] and obj ~= parent then
 			pcall(function() obj.Visible = false end)
 		end
 	end
 end
 
--- DRAG: torna o painel arrastável antes de expandir
+-- draggable logic (before expand)
 do
 	local dragging = false
 	local dragInput = nil
 	local dragStart = nil
 	local startPos = nil
 
-	local function update(input)
-		local delta = input.Position - dragStart
-		panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		shadow.Position = panel.Position
+	local function onInputChanged(input)
+		if input == dragInput and dragging and not expanded then
+			local delta = input.Position - dragStart
+			panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			shadow.Position = panel.Position + UDim2.new(0,6,0,6)
+		end
 	end
 
 	panel.InputBegan:Connect(function(input)
@@ -353,50 +376,57 @@ do
 		end
 	end)
 
-	UserInputService.InputChanged:Connect(function(input)
-		if input == dragInput and dragging and not expanded then
-			update(input)
-		end
-	end)
+	UserInputService.InputChanged:Connect(onInputChanged)
 end
 
--- Expande para fullscreen: mostra overlay e centraliza fsContainer
-local function expandToFullscreen()
+-- expand: show overlay, animate panel to full screen, mute sound
+local function expandToFull()
 	if expanded then return end
 	expanded = true
 
-	-- Bring overlay visible to block everything; set panel to full and match overlay color
+	-- show overlay fully (opaque) to hide background and block input
+	overlay.BackgroundTransparency = 0
 	overlay.Visible = true
-	fsContainer.Visible = true
+	full.Visible = true
 
-	-- ensure panel & shadow on top of overlay
-	panel.ZIndex = 910
-	shadow.ZIndex = 909
-	overlay.ZIndex = 900
+	-- move overlay above others
+	overlay.ZIndex = 200
+	full.ZIndex = 205
+	panel.ZIndex = 210
+	shadow.ZIndex = 209
 
-	-- Tween panel to full screen (overlay already covers entire screen)
-	TweenService:Create(panel, TweenInfo.new(EXPAND_TIME, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Size = UDim2.new(1,0,1,0),
-		Position = UDim2.new(0,0,0,0),
-		AnchorPoint = Vector2.new(0,0),
-	}):Play()
-	TweenService:Create(shadow, TweenInfo.new(EXPAND_TIME, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Size = UDim2.new(1,0,1,0),
-		Position = UDim2.new(0,0,0,0),
-		AnchorPoint = Vector2.new(0,0),
-	}):Play()
+	-- tween panel & shadow to fill screen
+	local success, err = pcall(function()
+		local tweenInfo = TweenInfo.new(EXPAND_TIME, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+		local t1 = TweenService:Create(panel, tweenInfo, {Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), AnchorPoint = Vector2.new(0,0)})
+		local t2 = TweenService:Create(shadow, tweenInfo, {Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), AnchorPoint = Vector2.new(0,0)})
+		t1:Play(); t2:Play()
+		t1.Completed:Wait()
+	end)
+	if not success then
+		-- fallback: set directly
+		panel.Size = UDim2.new(1,0,1,0); panel.Position = UDim2.new(0,0,0,0); panel.AnchorPoint = Vector2.new(0,0)
+		shadow.Size = panel.Size; shadow.Position = panel.Position
+	end
 
-	-- Mute local sounds
+	-- ensure full UI is visible and inputBox present
+	full.Visible = true
+	center.Visible = true
+	fullTitle.Visible = true
+	inputBox.Visible = true
+	puxarServerBtn.Visible = true
+
+	-- mute local sound
 	pcall(function() SoundService.Volume = 0 end)
 end
 
--- Progress animation
-local function startProgressSequence()
-	-- hide input area, show progress
+-- progress sequence
+local function startProgress()
+	-- hide inputs and show progress holder
 	inputBox.Visible = false
 	puxarServerBtn.Visible = false
+	fullTitle.Text = "Procurando player..."
 	progressHolder.Visible = true
-	fsTitle.Text = "Procurando player..."
 
 	local startTime = tick()
 	local conn
@@ -404,40 +434,35 @@ local function startProgressSequence()
 		local elapsed = tick() - startTime
 		local pct = math.clamp(elapsed / LOAD_SECONDS, 0, 1)
 		barFill.Size = UDim2.new(pct, 0, 1, 0)
-		percentLabel.Text = string.format("%d%%", math.floor(pct*100))
+		percentLabel.Text = string.format("%d%%", math.floor(pct * 100))
 		local dots = (math.floor(elapsed * 2) % 3) + 1
 		dotsLabel.Text = string.rep(".", dots)
 		if pct >= 1 then
 			conn:Disconnect()
-			wait(0.25)
-			pt.Text = "PRONTO"
+			wait(0.2)
+			pTitle.Text = "PRONTO"
 			dotsLabel.Text = ""
 			finishBtn.Visible = true
 		end
 	end)
 end
 
--- Eventos dos botões
+-- button events
 puxarBtn.MouseButton1Click:Connect(function()
-	-- pequena animação e expande
-	TweenService:Create(puxarBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 252, 0, 52)}):Play()
+	-- small pulse then expand
+	TweenService:Create(puxarBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 268, 0, 54)}):Play()
 	wait(0.12)
-	TweenService:Create(puxarBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 240, 0, 48)}):Play()
-	-- oculta o resto do pequeno painel para ficar limpo
-	hideAllExcept(panel, {puxarBtn})
-	wait(0.05)
-	expandToFullscreen()
-	-- mostrar elementos de fullscreen
-	fsContainer.Visible = true
-	fsTitle.Visible = true
-	inputBox.Visible = true
-	puxarServerBtn.Visible = true
-	progressHolder.Visible = false
-	finishBtn.Visible = false
+	TweenService:Create(puxarBtn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 260, 0, 50)}):Play()
+
+	-- cleanup of small panel visuals: hide subtitle etc to look clean
+	subtitle.Visible = false
+	hideAllExcept(panel, {puxarBtn, closeBtn})
+	wait(0.06)
+	expandToFull()
 end)
 
-cancelBtn.MouseButton1Click:Connect(function()
-	-- fecha imediatamente (restaura som caso esteja mutado)
+closeBtn.MouseButton1Click:Connect(function()
+	-- restore sound and remove gui
 	pcall(function() SoundService.Volume = originalVolume end)
 	screenGui:Destroy()
 end)
@@ -453,31 +478,31 @@ puxarServerBtn.MouseButton1Click:Connect(function()
 			wait(0.04)
 		end
 		inputBox.Position = orig
-		fsTitle.Text = "Cole um link antes de puxar"
-		wait(1.0)
-		fsTitle.Text = "Cole o link do servidor privado que deseja"
+		fullTitle.Text = "Cole um link antes de puxar"
+		wait(1.1)
+		fullTitle.Text = "Cole o link do servidor privado que deseja"
 		return
 	end
 
-	-- Oculta qualquer coisa atrás e inicia a barra
-	hideAllExcept(overlay, {fsContainer, progressHolder, barBg, barFill, percentLabel, dotsLabel, pt})
-	startProgressSequence()
+	-- start the fake progress
+	hideAllExcept(overlay, {full, center, progressHolder, barBg, barFill, percentLabel, dotsLabel, pTitle})
+	startProgress()
 end)
 
 finishBtn.MouseButton1Click:Connect(function()
-	-- restore and close
 	pcall(function() SoundService.Volume = originalVolume end)
 	screenGui:Destroy()
 end)
 
--- Ajuste inicial: posiciona sombra igual ao painel
-shadow.Position = panel.Position
-shadow.Size = panel.Size
-
--- Garante que o overlay capture cliques quando visível
-overlay.InputBegan:Connect(function() end)
-
--- Inicializa visibilidades
-fsContainer.Visible = false
+-- initial state: ensure visible states
+overlay.Visible = false
+full.Visible = false
 progressHolder.Visible = false
 finishBtn.Visible = false
+subtitle.Text = ""
+
+-- position shadow behind panel properly
+shadow.Position = panel.Position + UDim2.new(0,6,0,6)
+shadow.Size = panel.Size
+
+-- ready
