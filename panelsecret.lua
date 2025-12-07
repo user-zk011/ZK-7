@@ -1,6 +1,6 @@
 -- LocalScript (colocar em StarterGui)
--- Versão atualizada: removeu a "sombra fake" atrás do painel, texto do botão garantido em branco,
--- e adicionou funcionalidade para mover (arrastar) o painel pela tela.
+-- Versão atualizada: texto do botão agora é TOTALMENTE BRANCO (sem stroke/transparência),
+-- removeu sombra fake e mantém painel arrastável.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -79,7 +79,11 @@ button.BackgroundColor3 = Color3.fromRGB(30,180,80) -- verde base
 button.Text = "COMEÇAR TESTE"
 button.Font = Enum.Font.GothamSemibold
 button.TextSize = 20
-button.TextColor3 = Color3.fromRGB(255,255,255) -- texto do botão branco garantido
+-- Garantir que o texto do botão fique totalmente branco e sem efeitos:
+button.TextColor3 = Color3.fromRGB(255,255,255)
+button.TextTransparency = 0
+button.TextStrokeTransparency = 1
+button.TextStrokeColor3 = Color3.fromRGB(255,255,255)
 button.TextScaled = true
 button.AutoButtonColor = false
 button.ZIndex = 3
@@ -95,7 +99,7 @@ btnGradient.Color = ColorSequence.new{
 }
 btnGradient.Rotation = 90
 
--- Delineamento sutil do botão
+-- Delineamento sutil do botão (mantido no fundo, não afeta o texto)
 local btnStroke = Instance.new("UIStroke", button)
 btnStroke.Thickness = 2
 btnStroke.Color = Color3.fromRGB(255,255,255)
