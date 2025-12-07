@@ -1,7 +1,9 @@
 -- LocalScript (colocar em StarterGui)
--- Mostra uma GUI com retângulo preto, contorno azul, "OLÁ, USERNAME" e um botão verde "COMEÇAR TESTE".
+-- Versão atualizada: removeu a "sombra fake" atrás do painel, texto do botão garantido em branco,
+-- e adicionou funcionalidade para mover (arrastar) o painel pela tela.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerName = (player.DisplayName and player.DisplayName ~= "") and player.DisplayName or player.Name
@@ -12,21 +14,7 @@ screenGui.Name = "WelcomeGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Backdrop (sombra sutil)
-local shadow = Instance.new("Frame")
-shadow.Name = "Shadow"
-shadow.Size = UDim2.new(0, 440, 0, 240)
-shadow.Position = UDim2.new(0.5, 0, 0.4, 6)
-shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-shadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
-shadow.BackgroundTransparency = 0.6
-shadow.BorderSizePixel = 0
-shadow.ZIndex = 1
-shadow.Parent = screenGui
-local shadowCorner = Instance.new("UICorner", shadow)
-shadowCorner.CornerRadius = UDim.new(0, 18)
-
--- Main frame
+-- Main frame (painel preto com contorno azul)
 local frame = Instance.new("Frame")
 frame.Name = "MainFrame"
 frame.Size = UDim2.new(0, 420, 0, 220)
@@ -36,6 +24,7 @@ frame.BackgroundColor3 = Color3.fromRGB(10,10,10) -- preto suave
 frame.BorderSizePixel = 0
 frame.ZIndex = 2
 frame.Parent = screenGui
+frame.Active = true -- necessário para receber Input events para arrastar
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 16)
@@ -90,7 +79,8 @@ button.BackgroundColor3 = Color3.fromRGB(30,180,80) -- verde base
 button.Text = "COMEÇAR TESTE"
 button.Font = Enum.Font.GothamSemibold
 button.TextSize = 20
-button.TextColor3 = Color3.fromRGB(255,255,255)
+button.TextColor3 = Color3.fromRGB(255,255,255) -- texto do botão branco garantido
+button.TextScaled = true
 button.AutoButtonColor = false
 button.ZIndex = 3
 
@@ -131,17 +121,52 @@ end)
 button.MouseButton1Up:Connect(function()
 	-- animação de clique rápido e ação
 	unhoverTween:Play()
-	-- Aqui você pode disparar eventos, iniciar testes, teleport, etc.
-	-- Exemplo simples: efeito visual + mensagem no output
 	local flash = TweenService:Create(button, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.15})
 	flash:Play()
 	flash.Completed:Wait()
 	local restore = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0})
 	restore:Play()
 	print("Botão 'COMEÇAR TESTE' clicado por:", playerName)
+	-- Aqui você pode disparar RemoteEvent para o servidor, abrir outra GUI, etc.
 end)
 
 -- Aparecer com uma pequena animação (sobe e fica)
 frame.Position = UDim2.new(0.5, 0, 0.6, 0)
 local introTween = TweenService:Create(frame, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0.4, 0)})
 introTween:Play()
+
+-- Funcionalidade de arrastar o painel (drag)
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+	frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+
+		-- finaliza arrasto quando o input terminar
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+frame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
+	end
+end)
