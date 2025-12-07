@@ -1,12 +1,12 @@
--- FakePullSimulation_LocalScript.lua
--- AVISO: ESTE SCRIPT É TOTALMENTE FAKE / CLIENT-SIDE. 
--- Ele NÃO faz nada no servidor, NÃO puxa jogadores nem realiza requisições.
--- Use apenas para gravação de vídeo ou demonstração. Nunca publique isto como funcional.
--- Cole este LocalScript em StarterPlayerScripts ou em StarterGui como LocalScript.
+-- FakePull_NoWarning_LocalScript.lua
+-- COLE ESTE LocalScript EM StarterPlayerScripts OU StarterGui
+-- Este script é totalmente client-side: NÃO realiza nenhuma ação no servidor.
+-- Ele apenas mostra uma interface local e animações para gravação.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -15,12 +15,12 @@ local playerGui = player:WaitForChild("PlayerGui")
 local WINDOW_W = 440
 local WINDOW_H = 260
 local EXPAND_TIME = 0.6
-local LOAD_SECONDS = 30 -- tempo que a barra leva para "procurar"
-local BG_COLOR = Color3.fromRGB(84, 104, 120)       -- cinza azulado
-local STROKE_COLOR = Color3.fromRGB(64, 154, 140)   -- verde água (stroke)
-local BUTTON_GREEN = Color3.fromRGB(220, 245, 235)  -- botão verde claro meio branco
-local BUTTON_GREEN_TEXT = Color3.fromRGB(255,255,255)
-local BUTTON_RED = Color3.fromRGB(200,80,80)
+local LOAD_SECONDS = 30 -- tempo que a barra leva para "procurar" (segundos)
+local PANEL_COLOR = Color3.fromRGB(0,0,0)           -- painel preto
+local STROKE_COLOR = Color3.fromRGB(140,200,255)    -- traço azul claro
+local BUTTON_GREEN = Color3.fromRGB(100,200,150)    -- botão verde
+local BUTTON_RED = Color3.fromRGB(200,80,80)        -- botão vermelho
+local TEXT_COLOR = Color3.fromRGB(255,255,255)
 
 -- Helpers
 local function new(className, props)
@@ -42,111 +42,149 @@ for _,child in ipairs(playerGui:GetChildren()) do
 	if child.Name == "FakePullGUI" then child:Destroy() end
 end
 
-local screenGui = new("ScreenGui", {Parent = playerGui, Name = "FakePullGUI", ResetOnSpawn = false})
+local screenGui = new("ScreenGui", {
+	Parent = playerGui,
+	Name = "FakePullGUI",
+	ResetOnSpawn = false,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+})
+
+-- Painel inicial (pequeno)
 local panel = new("Frame", {
 	Parent = screenGui,
 	Name = "Panel",
 	Size = UDim2.new(0, WINDOW_W, 0, WINDOW_H),
-	Position = UDim2.new(0.5, -WINDOW_W/2, 0.18, 0),
-	BackgroundColor3 = BG_COLOR,
+	Position = UDim2.new(0.5, -WINDOW_W/2, 0.5, -WINDOW_H/2),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = PANEL_COLOR,
 	BorderSizePixel = 0,
+	ZIndex = 50,
+	Active = true, -- captura clique
 })
 new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,12)})
 new("UIStroke", {Parent = panel, Color = STROKE_COLOR, Thickness = 3})
 
--- Greeting
-local greeting = new("TextLabel", {
+-- Centraliza tudo verticalmente dentro do painel
+local contentFrame = new("Frame", {
 	Parent = panel,
-	Size = UDim2.new(1, -30, 0, 48),
-	Position = UDim2.new(0, 15, 0, 12),
+	Size = UDim2.new(1, -40, 1, -40),
+	Position = UDim2.new(0, 20, 0, 20),
+	BackgroundTransparency = 1,
+})
+contentFrame.AnchorPoint = Vector2.new(0,0)
+
+-- Greeting (centralizado)
+local greeting = new("TextLabel", {
+	Parent = contentFrame,
+	Size = UDim2.new(1, 0, 0, 36),
+	Position = UDim2.new(0, 0, 0, 10),
 	BackgroundTransparency = 1,
 	Text = "Olá, " .. (player.DisplayName ~= "" and player.DisplayName or player.Name),
-	TextColor3 = Color3.new(1,1,1),
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
 	TextSize = 22,
 	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
 })
--- Small subtitle
-new("TextLabel", {
-	Parent = panel,
-	Size = UDim2.new(1, -30, 0, 18),
-	Position = UDim2.new(0, 15, 0, 58),
+greeting.AnchorPoint = Vector2.new(0.5, 0)
+greeting.Position = UDim2.new(0.5, 0, 0, 16)
+
+-- Subtitle centralizado
+local subtitle = new("TextLabel", {
+	Parent = contentFrame,
+	Size = UDim2.new(1, 0, 0, 18),
+	Position = UDim2.new(0.5, 0, 0, 56),
+	AnchorPoint = Vector2.new(0.5, 0),
 	BackgroundTransparency = 1,
-	Text = "Simulação local — não afeta outros jogadores.",
+	Text = "",
 	TextColor3 = Color3.fromRGB(200,200,200),
 	Font = Enum.Font.SourceSans,
 	TextSize = 14,
 	TextXAlignment = Enum.TextXAlignment.Center,
 })
 
--- Botão principal "Puxar jogadores"
+-- Botão principal (centralizado)
 local puxarBtn = new("TextButton", {
-	Parent = panel,
+	Parent = contentFrame,
 	Name = "PuxarBtn",
 	Size = UDim2.new(0, 260, 0, 48),
-	Position = UDim2.new(0.5, -130, 0, 110),
+	Position = UDim2.new(0.5, 0, 0.5, 10),
+	AnchorPoint = Vector2.new(0.5, 0),
 	BackgroundColor3 = BUTTON_GREEN,
 	Text = "Puxar jogadores",
-	TextColor3 = BUTTON_GREEN_TEXT,
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
 	TextSize = 20,
 	AutoButtonColor = true,
 })
 new("UICorner", {Parent = puxarBtn, CornerRadius = UDim.new(0,10)})
 
--- Fullscreen container (invisível até a expansão)
+-- Fullscreen elements container (invisível até expansão)
 local fullContainer = new("Frame", {
 	Parent = panel,
 	Name = "FullContainer",
 	Size = UDim2.new(1,0,1,0),
 	Position = UDim2.new(0,0,0,0),
 	BackgroundTransparency = 1,
-	ZIndex = 2,
+	ZIndex = 55,
 	Visible = false,
+	Active = true,
 })
+fullContainer.AnchorPoint = Vector2.new(0,0)
 
--- When first button clicked: expand panel and show input for server link
+-- Quando expandir, vamos de fato cobrir tudo e bloquear interações com elementos atrás
+local originalVolume = SoundService.Volume
+
 local function expandToFullScreen()
-	-- fade children out a bit for transition
-	for _,child in ipairs(panel:GetChildren()) do
-		if child:IsA("GuiObject") and child ~= panel then
-			pcall(function() TweenService:Create(child, TweenInfo.new(0.2), {TextTransparency = 0.6, BackgroundTransparency = math.clamp(child.BackgroundTransparency + 0.3, 0, 1)}):Play() end)
+	-- hide small panel children (we'll show fullContainer content)
+	for _, child in ipairs(contentFrame:GetChildren()) do
+		if child ~= puxarBtn then
+			child.Visible = false
 		end
 	end
-	wait(0.25)
-	-- expand panel to full screen
+	-- Tween to fullscreen and ensure opaque black covers entire screen
 	local tween = TweenService:Create(panel, TweenInfo.new(EXPAND_TIME, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 		Size = UDim2.new(1,0,1,0),
 		Position = UDim2.new(0,0,0,0),
+		AnchorPoint = Vector2.new(0,0),
 	})
 	tween:Play()
 	tween.Completed:Wait()
-	-- show full container content
+
+	panel.BackgroundTransparency = 0
+	panel.Active = true
+	panel.ZIndex = 100
 	fullContainer.Visible = true
+
+	-- Mute local sounds
+	pcall(function() SoundService.Volume = 0 end)
 end
 
--- Fullscreen UI elements
+-- Fullscreen UI (centralized)
 local bigTitle = new("TextLabel", {
 	Parent = fullContainer,
-	Size = UDim2.new(1,0,0,96),
-	Position = UDim2.new(0,0,0,20),
+	Size = UDim2.new(0.9, 0, 0, 60),
+	Position = UDim2.new(0.5, 0, 0.25, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
 	BackgroundTransparency = 1,
-	Text = "Cole o link do servidor privado que deseja (simulado)",
-	TextColor3 = Color3.new(1,1,1),
+	Text = "Cole o link do servidor privado que deseja",
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
-	TextSize = 26,
+	TextSize = 24,
 	TextWrapped = true,
 	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
 })
 
 local inputBox = new("TextBox", {
 	Parent = fullContainer,
 	Name = "ServerLinkBox",
 	Size = UDim2.new(0.7, 0, 0, 40),
-	Position = UDim2.new(0.15, 0, 0, 140),
+	Position = UDim2.new(0.5, 0, 0.45, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
 	BackgroundColor3 = Color3.fromRGB(245,245,245),
 	Text = "",
-	PlaceholderText = "Cole o link do servidor privado aqui (simulação)",
+	PlaceholderText = "Cole o link do servidor aqui",
 	TextColor3 = Color3.fromRGB(20,20,20),
 	Font = Enum.Font.SourceSans,
 	TextSize = 18,
@@ -158,21 +196,23 @@ local puxarServerBtn = new("TextButton", {
 	Parent = fullContainer,
 	Name = "PuxarServerBtn",
 	Size = UDim2.new(0, 160, 0, 42),
-	Position = UDim2.new(0.5, -80, 0, 200),
-	BackgroundColor3 = Color3.fromRGB(100,200,150),
+	Position = UDim2.new(0.5, 0, 0.58, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = BUTTON_GREEN,
 	Text = "Puxar player",
-	TextColor3 = Color3.fromRGB(255,255,255),
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
 	TextSize = 20,
 })
 new("UICorner", {Parent = puxarServerBtn, CornerRadius = UDim.new(0,8)})
 
--- Progress UI (inicialmente invisível)
+-- Progress UI (invisível até ativar)
 local progressContainer = new("Frame", {
 	Parent = fullContainer,
 	Name = "ProgressContainer",
 	Size = UDim2.new(0.7,0,0,110),
-	Position = UDim2.new(0.15,0,0,140),
+	Position = UDim2.new(0.5,0,0.5,0),
+	AnchorPoint = Vector2.new(0.5,0.5),
 	BackgroundTransparency = 1,
 	Visible = false,
 })
@@ -182,7 +222,7 @@ local procTitle = new("TextLabel", {
 	Position = UDim2.new(0,0,0,0),
 	BackgroundTransparency = 1,
 	Text = "PROCURANDO PLAYER",
-	TextColor3 = Color3.new(1,1,1),
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
 	TextSize = 20,
 	TextXAlignment = Enum.TextXAlignment.Center,
@@ -193,7 +233,7 @@ local dotsLabel = new("TextLabel", {
 	Position = UDim2.new(0,0,0,28),
 	BackgroundTransparency = 1,
 	Text = "",
-	TextColor3 = Color3.new(1,1,1),
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSans,
 	TextSize = 20,
 	TextXAlignment = Enum.TextXAlignment.Center,
@@ -202,7 +242,7 @@ local barBg = new("Frame", {
 	Parent = progressContainer,
 	Size = UDim2.new(1,0,0,18),
 	Position = UDim2.new(0,0,0,56),
-	BackgroundColor3 = Color3.fromRGB(50,50,50),
+	BackgroundColor3 = Color3.fromRGB(40,40,40),
 })
 new("UICorner", {Parent = barBg, CornerRadius = UDim.new(0,8)})
 local barFill = new("Frame", {
@@ -218,71 +258,58 @@ local percentLabel = new("TextLabel", {
 	Position = UDim2.new(0,0,0,78),
 	BackgroundTransparency = 1,
 	Text = "0%",
-	TextColor3 = Color3.new(1,1,1),
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
 	TextSize = 18,
 	TextXAlignment = Enum.TextXAlignment.Center,
 })
 
--- Close button after finish
 local closeBtn = new("TextButton", {
 	Parent = fullContainer,
 	Name = "CloseBtn",
 	Size = UDim2.new(0,120,0,40),
-	Position = UDim2.new(0.5, -60, 1, -70),
-	BackgroundColor3 = Color3.fromRGB(200,80,80),
+	Position = UDim2.new(0.5, -60, 0.85, 0),
+	AnchorPoint = Vector2.new(0.5, 0),
+	BackgroundColor3 = BUTTON_RED,
 	Text = "Fechar",
-	TextColor3 = Color3.new(1,1,1),
+	TextColor3 = TEXT_COLOR,
 	Font = Enum.Font.SourceSansBold,
 	TextSize = 18,
 	Visible = false,
 })
 new("UICorner", {Parent = closeBtn, CornerRadius = UDim.new(0,8)})
 
--- Functions for animations and flow
-local function showProgressSequence()
-	-- Hide input and show progress container
-	inputBox.Visible = false
-	puxarServerBtn.Visible = false
-	progressContainer.Visible = true
-
-	local startTime = tick()
-	local conn
-	conn = RunService.Heartbeat:Connect(function()
-		local elapsed = tick() - startTime
-		local pct = math.clamp(elapsed / LOAD_SECONDS, 0, 1)
-		barFill.Size = UDim2.new(pct, 0, 1, 0)
-		percentLabel.Text = string.format("%d%%", math.floor(pct*100))
-		-- dots animation (cyclical)
-		local dots = (math.floor(elapsed * 2) % 3) + 1
-		dotsLabel.Text = string.rep(".", dots)
-		if pct >= 1 then
-			conn:Disconnect()
-			wait(0.3)
-			-- final state: keep progress at 100% and show finish message & close
-			procTitle.Text = "PRONTO (simulado)"
-			dotsLabel.Text = ""
-			closeBtn.Visible = true
+-- Utility: hide all clickable children except the one specified
+local function hideAllExcept(root, exceptions)
+	exceptions = exceptions or {}
+	local exceptSet = {}
+	for _,v in ipairs(exceptions) do exceptSet[v] = true end
+	for _, child in ipairs(root:GetDescendants()) do
+		if child:IsA("GuiObject") and child ~= root and not exceptSet[child] then
+			pcall(function() child.Visible = false end)
 		end
-	end)
+	end
 end
 
--- Button actions
+-- Quando clicar no botão principal, expandir e mostrar input
 puxarBtn.MouseButton1Click:Connect(function()
+	-- oculta todo o restante do panel para evitar clique e visual poluído
+	hideAllExcept(panel, {puxarBtn})
 	expandToFullScreen()
-	-- make sure relevant elements visible
-	fullContainer.Visible = true
-	bigTitle.Text = "Cole o link do servidor privado que deseja (simulação)"
+
+	-- mostra os elementos necessários do fullscreen
+	bigTitle.Visible = true
 	inputBox.Visible = true
 	puxarServerBtn.Visible = true
 	progressContainer.Visible = false
 	closeBtn.Visible = false
 end)
 
+-- Ao clicar em puxar no fullscreen: ocultar demais elementos e começar progresso
 puxarServerBtn.MouseButton1Click:Connect(function()
-	local link = tostring(inputBox.Text or "")
-	if link:match("^%s*$") then
-		-- feedback simples: shake input and temporary hint
+	local text = tostring(inputBox.Text or "")
+	if text:match("^%s*$") then
+		-- pequeno feedback (shake)
 		local origPos = inputBox.Position
 		for i=1,6 do
 			local x = (i % 2 == 0) and 6 or -6
@@ -290,19 +317,58 @@ puxarServerBtn.MouseButton1Click:Connect(function()
 			wait(0.04)
 		end
 		inputBox.Position = origPos
-		bigTitle.Text = "Cole um link antes de puxar (simulação)"
+		bigTitle.Text = "Cole um link antes de puxar"
 		wait(1.2)
-		bigTitle.Text = "Cole o link do servidor privado que deseja (simulação)"
+		bigTitle.Text = "Cole o link do servidor privado que deseja"
 		return
 	end
 
-	-- Start the fake progress sequence
-	showProgressSequence()
+	-- Oculta tudo exceto o progresso
+	hideAllExcept(fullContainer, {progressContainer})
+	inputBox.Visible = false
+	puxarServerBtn.Visible = false
+	bigTitle.Text = "Procurando player..."
+	progressContainer.Visible = true
+
+	-- Progress animation (LOAD_SECONDS)
+	local startTime = tick()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local elapsed = tick() - startTime
+		local pct = math.clamp(elapsed / LOAD_SECONDS, 0, 1)
+		barFill.Size = UDim2.new(pct, 0, 1, 0)
+		percentLabel.Text = string.format("%d%%", math.floor(pct*100))
+		local dots = (math.floor(elapsed * 2) % 3) + 1
+		dotsLabel.Text = string.rep(".", dots)
+		if pct >= 1 then
+			conn:Disconnect()
+			wait(0.2)
+			procTitle.Text = "PRONTO"
+			dotsLabel.Text = ""
+			closeBtn.Visible = true
+		end
+	end)
 end)
 
 closeBtn.MouseButton1Click:Connect(function()
-	-- destroy GUI (end of fake flow)
+	-- restaura som e remove GUI
+	pcall(function() SoundService.Volume = originalVolume end)
 	screenGui:Destroy()
 end)
 
--- Initial visibility states are already set; finished.
+-- Inicial: centraliza texto e garante visibilidades
+greeting.Text = "Olá, " .. (player.DisplayName ~= "" and player.DisplayName or player.Name)
+subtitle.Text = ""
+puxarBtn.Visible = true
+fullContainer.Visible = false
+bigTitle.Visible = false
+inputBox.Visible = false
+puxarServerBtn.Visible = false
+progressContainer.Visible = false
+closeBtn.Visible = false
+
+-- Garante que o painel capture todos os cliques quando estiver fullscreen
+panel.Active = true
+fullContainer.Active = true
+
+-- Fim do script
